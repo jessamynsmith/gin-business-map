@@ -76,44 +76,85 @@ func main() {
 	}
 
 	router := gin.Default()
-	router.GET("/api/v1/businesses/search/", RequestHandler(config))
+	router.GET("/api/v1/businesses/search/", RequestHandler(config, searchBusinesses))
+	router.GET("/api/v1/businesses/:businessId/", RequestHandler(config, businessDetails))
 
 	router.Run("localhost:8080")
 }
 
-func RequestHandler(config map[string]string) gin.HandlerFunc {
+func RequestHandler(config map[string]string, handler func(c *gin.Context, config map[string]string)) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
-		url := fmt.Sprintf("%sbusinesses/search", config["YELP_API_BASE_URL"])
-		authorization := fmt.Sprintf("Bearer %s", config["YELP_API_KEY"])
-
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			fmt.Print(err.Error())
-			returnError(c, "Unable to create request")
-			return
-		}
-		req.Header.Add("Authorization", authorization)
-		q := c.Request.URL.Query()
-		req.URL.RawQuery = q.Encode()
-		fmt.Print(q.Encode())
-
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			fmt.Print(err.Error())
-			returnError(c, "Unable to retrieve data")
-			return
-		}
-		defer res.Body.Close()
-
-		jsonData := businesses{}
-
-		jsonErr := json.NewDecoder(res.Body).Decode(&jsonData)
-		if jsonErr != nil {
-			fmt.Println(jsonErr.Error())
-			returnError(c, "Unable to retrieve businesses")
-		}
-
-		c.IndentedJSON(http.StatusOK, jsonData)
+		handler(c, config)
 	}
 	return fn
+}
+
+func searchBusinesses(c *gin.Context, config map[string]string) {
+	url := fmt.Sprintf("%sbusinesses/search", config["YELP_API_BASE_URL"])
+	authorization := fmt.Sprintf("Bearer %s", config["YELP_API_KEY"])
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Print(err.Error())
+		returnError(c, "Unable to create request")
+		return
+	}
+	req.Header.Add("Authorization", authorization)
+	q := c.Request.URL.Query()
+	req.URL.RawQuery = q.Encode()
+	fmt.Print(q.Encode())
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Print(err.Error())
+		returnError(c, "Unable to retrieve data")
+		return
+	}
+	defer res.Body.Close()
+
+	jsonData := businesses{}
+
+	jsonErr := json.NewDecoder(res.Body).Decode(&jsonData)
+	if jsonErr != nil {
+		fmt.Println(jsonErr.Error())
+		returnError(c, "Unable to retrieve businesses")
+	}
+
+	c.IndentedJSON(http.StatusOK, jsonData)
+}
+
+func businessDetails(c *gin.Context, config map[string]string) {
+	businessId := c.Param("businessId")
+	url := fmt.Sprintf("%sbusinesses/%s", config["YELP_API_BASE_URL"], businessId)
+	fmt.Print(url)
+	authorization := fmt.Sprintf("Bearer %s", config["YELP_API_KEY"])
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Print(err.Error())
+		returnError(c, "Unable to create request")
+		return
+	}
+	req.Header.Add("Authorization", authorization)
+	q := c.Request.URL.Query()
+	req.URL.RawQuery = q.Encode()
+	fmt.Print(q.Encode())
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Print(err.Error())
+		returnError(c, "Unable to retrieve data")
+		return
+	}
+	defer res.Body.Close()
+
+	jsonData := business{}
+
+	jsonErr := json.NewDecoder(res.Body).Decode(&jsonData)
+	if jsonErr != nil {
+		fmt.Println(jsonErr.Error())
+		returnError(c, "Unable to retrieve business")
+	}
+
+	c.IndentedJSON(http.StatusOK, jsonData)
 }
