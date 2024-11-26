@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -54,8 +55,35 @@ type businesses struct {
 	Businesses []business `json:"businesses"`
 }
 
-func returnError(c *gin.Context, errorMessage string) {
-	c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": errorMessage})
+func yelpRequest(url string, queryParams url.Values, config map[string]string, jsonData any) string {
+	errorMessage := ""
+
+	authorization := fmt.Sprintf("Bearer %s", config["YELP_API_KEY"])
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Print(err.Error())
+		errorMessage = "Unable to create request"
+	} else {
+		req.Header.Add("Authorization", authorization)
+		req.URL.RawQuery = queryParams.Encode()
+
+		res, doErr := http.DefaultClient.Do(req)
+		if doErr != nil {
+			fmt.Print(doErr.Error())
+			errorMessage = "Unable to retrieve data"
+		} else {
+			defer res.Body.Close()
+
+			jsonErr := json.NewDecoder(res.Body).Decode(&jsonData)
+			if jsonErr != nil {
+				fmt.Print(jsonErr.Error())
+				errorMessage = "Unable to parse data"
+			}
+		}
+
+	}
+	return errorMessage
 }
 
 func main() {
@@ -89,35 +117,20 @@ func RequestHandler(config map[string]string, handler func(c *gin.Context, confi
 	return fn
 }
 
+func returnError(c *gin.Context, errorMessage string) {
+	c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": errorMessage})
+}
+
 func searchBusinesses(c *gin.Context, config map[string]string) {
-	url := fmt.Sprintf("%sbusinesses/search", config["YELP_API_BASE_URL"])
-	authorization := fmt.Sprintf("Bearer %s", config["YELP_API_KEY"])
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Print(err.Error())
-		returnError(c, "Unable to create request")
-		return
-	}
-	req.Header.Add("Authorization", authorization)
-	q := c.Request.URL.Query()
-	req.URL.RawQuery = q.Encode()
-	fmt.Print(q.Encode())
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Print(err.Error())
-		returnError(c, "Unable to retrieve data")
-		return
-	}
-	defer res.Body.Close()
-
+	apiUrl := fmt.Sprintf("%sbusinesses/search", config["YELP_API_BASE_URL"])
 	jsonData := businesses{}
 
-	jsonErr := json.NewDecoder(res.Body).Decode(&jsonData)
-	if jsonErr != nil {
-		fmt.Println(jsonErr.Error())
-		returnError(c, "Unable to retrieve businesses")
+	errorMessage := yelpRequest(apiUrl, c.Request.URL.Query(), config, &jsonData)
+
+	if errorMessage != "" {
+		fmt.Print(errorMessage)
+		returnError(c, errorMessage)
+		return
 	}
 
 	c.IndentedJSON(http.StatusOK, jsonData)
@@ -125,35 +138,15 @@ func searchBusinesses(c *gin.Context, config map[string]string) {
 
 func businessDetails(c *gin.Context, config map[string]string) {
 	businessId := c.Param("businessId")
-	url := fmt.Sprintf("%sbusinesses/%s", config["YELP_API_BASE_URL"], businessId)
-	fmt.Print(url)
-	authorization := fmt.Sprintf("Bearer %s", config["YELP_API_KEY"])
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Print(err.Error())
-		returnError(c, "Unable to create request")
-		return
-	}
-	req.Header.Add("Authorization", authorization)
-	q := c.Request.URL.Query()
-	req.URL.RawQuery = q.Encode()
-	fmt.Print(q.Encode())
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Print(err.Error())
-		returnError(c, "Unable to retrieve data")
-		return
-	}
-	defer res.Body.Close()
-
+	apiUrl := fmt.Sprintf("%sbusinesses/%s", config["YELP_API_BASE_URL"], businessId)
 	jsonData := business{}
 
-	jsonErr := json.NewDecoder(res.Body).Decode(&jsonData)
-	if jsonErr != nil {
-		fmt.Println(jsonErr.Error())
-		returnError(c, "Unable to retrieve business")
+	errorMessage := yelpRequest(apiUrl, c.Request.URL.Query(), config, &jsonData)
+
+	if errorMessage != "" {
+		fmt.Print(errorMessage)
+		returnError(c, errorMessage)
+		return
 	}
 
 	c.IndentedJSON(http.StatusOK, jsonData)
