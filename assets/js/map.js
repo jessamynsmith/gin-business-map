@@ -1,7 +1,17 @@
+var markers = [];
 
-function updateBusinesses(map) {
+function clearMarkers(map) {
+    markers.forEach(function(marker) {
+        map.removeLayer(marker);
+    });
+
+    markers = [];
+}
+
+function updateBusinesses(map, term) {
+    clearMarkers(map);
+
     var url = "/api/v1/businesses/search/";
-    var term = "Sushi";
     var location = map.getCenter();
     fetch(`${url}?term=${term}&latitude=${location.lat}&longitude=${location.lng}`)
         .then(response => {
@@ -12,9 +22,10 @@ function updateBusinesses(map) {
                         let business = responseJson.businesses[i];
                         let markerCoords = [business.coordinates.latitude, business.coordinates.longitude];
                         var marker = L.marker(markerCoords).addTo(map);
+                        markers.push(marker);
                         var businessDesc = `${business.rating}`;
                         if (business.price) {
-                            businessDesc = `${businessDesc} ~ ${business.price}`;
+                            businessDesc = `${businessDesc} - ${business.price}`;
                         }
                         marker.bindPopup(`<b>${business.name}</b><br>${businessDesc}`);
                     }
@@ -38,8 +49,14 @@ addEventListener("DOMContentLoaded",  (event) => {
         navigator.geolocation.getCurrentPosition((position) => {
             coords = [position.coords.latitude, position.coords.longitude];
             map = map.setView(coords, 13);
-            updateBusinesses(map);
         });
     }
+
+    document.getElementById("searchForm").addEventListener('submit', function(evt) {
+        evt.preventDefault();
+
+        let term = document.getElementById("search").value;
+        updateBusinesses(map, term);
+    });
 
 });
