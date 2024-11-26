@@ -3,12 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"net/http"
 	"net/url"
 	"os"
-
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 type category struct {
@@ -86,30 +85,6 @@ func yelpRequest(url string, queryParams url.Values, config map[string]string, j
 	return errorMessage
 }
 
-func main() {
-	if err := godotenv.Load(); err != nil {
-		panic("No .env file found")
-	}
-
-	config := make(map[string]string)
-	envVars := []string{"YELP_API_BASE_URL", "YELP_API_KEY"}
-
-	for _, envVar := range envVars {
-		envValue, found := os.LookupEnv(envVar)
-		if !found {
-			errorMessage := fmt.Sprintf("Missing environment variable: %s", envVar)
-			panic(errorMessage)
-		}
-		config[envVar] = envValue
-	}
-
-	router := gin.Default()
-	router.GET("/api/v1/businesses/search/", RequestHandler(config, searchBusinesses))
-	router.GET("/api/v1/businesses/:businessId/", RequestHandler(config, businessDetails))
-
-	router.Run("localhost:8080")
-}
-
 func RequestHandler(config map[string]string, handler func(c *gin.Context, config map[string]string)) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		handler(c, config)
@@ -150,4 +125,38 @@ func businessDetails(c *gin.Context, config map[string]string) {
 	}
 
 	c.IndentedJSON(http.StatusOK, jsonData)
+}
+
+func businessMap(c *gin.Context, config map[string]string) {
+	c.HTML(http.StatusOK, "map.tmpl", gin.H{
+		"title": "Business Map",
+	})
+}
+
+func main() {
+	if err := godotenv.Load(); err != nil {
+		panic("No .env file found")
+	}
+
+	config := make(map[string]string)
+	envVars := []string{"YELP_API_BASE_URL", "YELP_API_KEY"}
+
+	for _, envVar := range envVars {
+		envValue, found := os.LookupEnv(envVar)
+		if !found {
+			errorMessage := fmt.Sprintf("Missing environment variable: %s", envVar)
+			panic(errorMessage)
+		}
+		config[envVar] = envValue
+	}
+
+	router := gin.Default()
+	router.LoadHTMLGlob("templates/*")
+	router.Static("/assets", "./assets")
+
+	router.GET("/api/v1/businesses/search/", RequestHandler(config, searchBusinesses))
+	router.GET("/api/v1/businesses/:businessId/", RequestHandler(config, businessDetails))
+	router.GET("/", RequestHandler(config, businessMap))
+
+	router.Run("localhost:8080")
 }
