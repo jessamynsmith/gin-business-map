@@ -69,27 +69,38 @@ func main() {
 	router.Run("localhost:8080")
 }
 
+func returnError(c *gin.Context, errorMessage string) {
+	c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": errorMessage})
+}
+
 func searchBusinesses(c *gin.Context) {
 	apiBaseUrl, existsApiBaseUrl := os.LookupEnv("YELP_API_BASE_URL")
 	apiKey, existsApiKey := os.LookupEnv("YELP_API_KEY")
 
 	if !existsApiKey || !existsApiBaseUrl {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Server is misconfigured"})
+		returnError(c, "Server is misconfigured")
+		return
 	}
 
-	// TODO switch to querystring from request
-	url := fmt.Sprintf("%sbusinesses/search?location=Calgary&term=Nepal&sort_by=best_match&limit=20", apiBaseUrl)
+	url := fmt.Sprintf("%sbusinesses/search", apiBaseUrl)
 	authorization := fmt.Sprintf("Bearer %s", apiKey)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		fmt.Print(err.Error())
+		returnError(c, "Unable to create request")
+		return
 	}
 	req.Header.Add("Authorization", authorization)
+	q := c.Request.URL.Query()
+	req.URL.RawQuery = q.Encode()
+	fmt.Print(q.Encode())
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Print(err.Error())
+		returnError(c, "Unable to retrieve data")
+		return
 	}
 	defer res.Body.Close()
 
@@ -98,7 +109,7 @@ func searchBusinesses(c *gin.Context) {
 	jsonErr := json.NewDecoder(res.Body).Decode(&jsonData)
 	if jsonErr != nil {
 		fmt.Println(jsonErr.Error())
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Unable to retrieve data"})
+		returnError(c, "Unable to retrieve businesses")
 	}
 
 	c.IndentedJSON(http.StatusOK, jsonData)
