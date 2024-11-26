@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -135,7 +136,7 @@ func businessMap(c *gin.Context, config map[string]string) {
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		panic("No .env file found")
+		log.Print("No .env file found")
 	}
 
 	config := make(map[string]string)
@@ -150,6 +151,14 @@ func main() {
 		config[envVar] = envValue
 	}
 
+	log.Print("starting server...")
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+		log.Printf("defaulting to port %s", port)
+	}
+
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/assets", "./assets")
@@ -158,5 +167,5 @@ func main() {
 	router.GET("/api/v1/businesses/:businessId/", RequestHandler(config, businessDetails))
 	router.GET("/", RequestHandler(config, businessMap))
 
-	router.Run("localhost:8080")
+	router.Run(":" + port)
 }
