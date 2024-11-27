@@ -36,9 +36,9 @@ function updateBusinesses(map, term) {
 
 
 addEventListener("DOMContentLoaded",  (event) => {
-    let coords = [51.0271596,-114.4174673];
+    let coords = [51.0389456,-114.0445233];
 
-    var map = L.map('map').setView(coords, 13);
+    var map = L.map('map').setView(coords, 15);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -48,7 +48,7 @@ addEventListener("DOMContentLoaded",  (event) => {
     if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition((position) => {
             coords = [position.coords.latitude, position.coords.longitude];
-            map = map.setView(coords, 13);
+            map.locate({setView: true, maxZoom: 15});
         });
     }
 
